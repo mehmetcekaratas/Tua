@@ -1,132 +1,173 @@
+<!-- index.html -->
 <!DOCTYPE html>
 <html lang="tr" data-theme="dark">
 <head>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>StarWay | Uzay Havası Paneli</title>
-
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>StarWay | Uzay Havası Erken Uyarı Sistemi</title>
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Space+Mono:wght@400;700&family=Exo+2:ital,wght@0,300;0,700;1,300&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.128.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.128.0/examples/jsm/"
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-
-    <header class="top-nav">
-        <div class="brand">
-            <h1>StarWay Dashboard</h1>
-            <span class="subtitle">Bahçeşehir Koleji Fen ve Teknoloji Lisesi</span>
+<canvas id="sf"></canvas>
+<div id="toast-container"></div>
+<header class="hdr">
+    <div class="hdr-brand">
+        <svg width="30" height="30" viewBox="0 0 32 32">
+            <circle cx="16" cy="16" r="14" stroke="#00d4ff" stroke-width="1.5" opacity=".4"/>
+            <circle cx="16" cy="16" r="7" stroke="#00d4ff" stroke-width="1.5" opacity=".7"/>
+            <circle cx="16" cy="16" r="2.5" fill="#00d4ff"/>
+        </svg>
+        <div>
+            <div class="hdr-title">StarWay</div>
+            <div class="hdr-sub">UZAY HAVASI ERKEN UYARI · GERÇEKÇİ 3D</div>
         </div>
-        <div class="controls">
-            <div class="status-indicator">
-                <div id="connection-status" class="dot"></div>
-                <span id="connection-text">Bağlanıyor...</span>
-            </div>
-            <button id="theme-toggle" class="btn-theme">☀️ Gündüz Modu</button>
+    </div>
+    <div class="hdr-r">
+        <div class="profile-selector">
+            <span>👤 Profil:</span>
+            <select id="profileSelect">
+                <option value="ogrenci">🎓 Öğrenci</option>
+                <option value="pilot">✈️ Pilot</option>
+                <option value="uydum">🛰️ Uydu Operatörü</option>
+                <option value="radyo">📻 Radyo Meraklısı</option>
+                <option value="enerji">⚡ Enerji Sistemi</option>
+            </select>
         </div>
-    </header>
+        <button class="btn mode-toggle-btn" id="modeToggleBtn">🌐 Canlı Mod</button>
+        <div class="conn-pill"><div class="dot" id="cdot"></div><span id="ctxt">Bağlanıyor...</span></div>
+        <button class="btn" id="tbtn">☀️ Gündüz</button>
+        <button class="btn whatsapp-btn" id="whatsappShareBtn">📱 WhatsApp Uyarı</button>
+        <button class="btn notify-btn" id="notifyPermBtn">🔔 Bildirim</button>
+        <label style="display:flex;align-items:center;gap:6px;font-size:.7rem"><input type="checkbox" id="autoNotifyCheck"> ⚡ Otomatik uyarı</label>
+    </div>
+</header>
 
-    <main class="dashboard-container">
-        <div class="card simulation-card" style="grid-column: 1 / -1; height: 280px; position: relative; overflow: hidden; padding: 0; background: #050b14; border: 1px solid var(--accent-blue);">
-            <div style="position: absolute; top: 15px; left: 20px; z-index: 10; display: flex; align-items: center; gap: 10px;">
-                <span class="dot bg-kirmizi" style="animation: pulse 1s infinite;"></span>
-                <span style="color: #fff; font-family: 'Orbitron', sans-serif; font-size: 0.85rem; letter-spacing: 2px;">CANLI MANYETOSFER SİMÜLASYONU</span>
-            </div>
-            <canvas id="stormSimulationCanvas" style="width: 100%; height: 100%; display: block;"></canvas>
+<main class="main">
+    <div class="card hero" id="hero">
+        <div class="hero-l"><span class="h-lbl">KP İNDEKSİ</span><span class="h-val" id="h-kp">—</span><span class="h-sub" id="h-g">G-SCALE: —</span></div>
+        <div class="hero-c">
+            <div class="badge" id="badge"><span class="badge-status" id="bstatus">BAĞLANIYOR</span><span class="badge-time" id="btime">--:-- UTC</span><div class="live-badge-live" id="liveDataBadge">🌐 Canlı NOAA</div></div>
         </div>
-        <div class="card alert-card" id="main-alert-card">
-            <h2 class="card-title">Genel Sistem Durumu</h2>
-            <div class="alert-content">
-                <h1 id="system-status">Veri Bekleniyor</h1>
-                <p id="system-time" class="text-muted">Son Güncelleme: --:--</p>
-            </div>
+        <div class="hero-r"><span class="h-lbl">GÜNEŞ RÜZGARI</span><span class="h-val" id="h-wind">—</span><span class="h-sub">km/s</span></div>
+    </div>
+
+    <!-- Kp Gauge -->
+    <div class="card kp-card">
+        <div class="clabel">Kp Manyetik İndeksi (Canlı)</div>
+        <svg class="gauge-svg" viewBox="0 0 200 115">
+            <defs><linearGradient id="gg"><stop offset="0%" stop-color="#00ff88"/><stop offset="44%" stop-color="#ffd700"/><stop offset="72%" stop-color="#ff8c00"/><stop offset="100%" stop-color="#b44cf0"/></linearGradient></defs>
+            <path d="M20 108 A80 80 0 0 1 180 108" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="13"/>
+            <path id="gfill" d="M20 108 A80 80 0 0 1 100 28" fill="none" stroke="url(#gg)" stroke-width="13" stroke-linecap="round" stroke-dasharray="0 1000"/>
+            <circle id="gneedle" cx="100" cy="108" r="5.5" fill="var(--cyan)"/>
+        </svg>
+        <div class="kp-big" id="kpn">—</div>
+        <div class="kp-meta" style="display:grid;grid-template-columns:1fr 1fr;gap:7px">
+            <div class="km-item"><span class="lbl">G-ÖLÇEK</span><span id="gbadge">G?</span></div>
+            <div class="km-item"><span class="lbl">SEVİYE</span><span id="klevel">—</span></div>
+            <div class="km-item" style="grid-column:1/-1"><span class="lbl">RİSK</span><span id="krisk">—</span></div>
         </div>
+    </div>
 
-        <div class="grid-layout">
-            <div class="card">
-                <h3 class="card-title">Kp İndeksi</h3>
-                <div class="data-row">
-                    <span id="kp-value" class="data-value">--</span>
-                    <span id="g-scale" class="tag">G?</span>
-                </div>
-                <div class="details">
-                    <p>Seviye: <span id="kp-level">--</span></p>
-                    <p>Risk: <span id="kp-risk">--</span></p>
-                </div>
-            </div>
+    <div class="card wind-card">
+        <div class="clabel">Güneş Rüzgarı (DSCOVR)</div>
+        <div class="wind-row"><span class="wind-n" id="windn">—</span><span class="wind-u">km/s</span></div>
+        <div class="wbar-bg"><div class="wbar" id="wbar" style="width:0%"></div></div>
+        <div class="wbadge" id="wbadge">Veri Bekleniyor</div>
+    </div>
 
-            <div class="card">
-                <h3 class="card-title">Güneş Rüzgarı</h3>
-                <div class="data-row">
-                    <span id="wind-speed" class="data-value">--</span>
-                    <span class="data-unit">km/s</span>
-                </div>
-                <div class="details">
-                    <p>Durum: <span id="wind-status">--</span></p>
-                </div>
-            </div>
+    <div class="card ai-card">
+        <div class="clabel">🤖 Profil Odaklı AI Analizi</div>
+        <div class="ai-txt" id="aitxt">Profil seçin, canlı verilerle analiz yapılıyor...</div>
+    </div>
+
+    <!-- 3D Sun-Earth -->
+    <div class="card" style="grid-column:span 2;padding:0;overflow:hidden">
+        <div class="clabel" style="padding:12px 16px 0">☀️ Gerçekçi 3D Güneş & Dünya | Parçacık Akışı (Canlı rüzgar hızına göre)</div>
+        <div id="sunEarth3D" style="height:420px;width:100%;background:#010007"></div>
+    </div>
+
+    <!-- Historical comparison -->
+    <div class="card" style="grid-column:span 2">
+        <div class="clabel">📜 Tarihsel Karşılaştırma: Büyük Fırtınalar</div>
+        <div id="histContainer" class="hist-compare"></div>
+        <div id="compText" style="margin-top:12px;font-size:.8rem;font-family:var(--fm)"></div>
+    </div>
+
+    <!-- Aurora Tahmin Küresi -->
+    <div class="card">
+        <div class="clabel">🌌 Aurora Tahmin Küresi (Kp bazlı)</div>
+        <canvas id="auroraCanvas" class="aurora-canvas" width="400" height="180" style="width:100%;height:auto;background:#030b18"></canvas>
+        <div id="auroraDesc" style="font-size:.7rem;margin-top:8px"></div>
+    </div>
+
+    <!-- Manyetosfer Bükülmesi -->
+    <div class="card">
+        <div class="clabel">🧲 Manyetosfer Bükülmesi (Güneş rüzgarı etkisi)</div>
+        <canvas id="magCanvas" class="field-line-canvas" width="500" height="180"></canvas>
+        <div id="magDesc" style="font-size:.65rem;margin-top:5px"></div>
+    </div>
+
+    <!-- Risk bölgeleri -->
+    <div class="card risk-card">
+        <div class="clabel">⚠️ Aktif Risk Bölgeleri</div>
+        <div id="rlist"></div>
+    </div>
+
+    <!-- Simülasyon -->
+    <div class="card sim-card">
+        <div class="sim-hdr"><span class="sim-title">⚡ Manyetosfer Simülasyonu</span><div class="live-badge"><div class="live-d"></div>CANLI</div></div>
+        <canvas id="sim"></canvas>
+    </div>
+
+    <!-- Jüri Simülatörü -->
+    <div class="card panel-card">
+        <div class="clabel">🎮 Simülasyon Kontrolleri (Manuel)</div>
+        <input type="range" id="slider" min="0" max="9" step="1" value="3">
+        <div class="sim-kp-big" id="skv">3</div>
+        <span id="skd">Tehdit Yok</span>
+        <label style="display:block;margin-top:8px;font-size:.7rem">Rüzgar Hızı (km/s): <input type="range" id="simWindSlider" min="200" max="1200" step="10" value="400"></label>
+        <div id="simWindVal" style="font-size:.7rem">400 km/s</div>
+        <p style="font-size:.65rem;margin-top:6px">Simülasyon modunda, kaydırıcılar ile fırtına şiddetini kontrol edin.</p>
+    </div>
+
+    <!-- Bilgi Kartları -->
+    <div class="card" style="grid-column:span 2">
+        <div class="clabel">📘 Uzay Havası Bilgi Merkezi</div>
+        <div class="info-grid">
+            <div class="info-item"><strong>❓ Kp İndeksi Nedir?</strong><br>Kp (Küresel Planetar) indeksi, 0-9 arasında manyetik aktivite seviyesini gösterir. Kp≥5 fırtına, Kp≥7 şiddetli fırtına anlamına gelir.</div>
+            <div class="info-item"><strong>📡 Teknolojik Etkiler</strong><br>• Kp5+: GPS hataları • Kp7+: Uydu elektroniği riski • Kp8+: Şebeke dalgalanmaları</div>
+            <div class="info-item"><strong>🌞 Güneş Aktivitesi</strong><br>Güneş lekeleri ve koronal kütle atımları (CME) manyetik fırtınalara neden olur. 11 yıllık döngü.</div>
+            <div class="info-item"><strong>🔮 Tahmin</strong><br>NOAA SWPC, 3 günlük uzay havası tahmini yayınlar. Anlık veriler DSCOVR uydusundan gelir.</div>
         </div>
+    </div>
 
-        <div class="card ai-card">
-            <h3 class="card-title">Astro-AI Analizi</h3>
-            <p id="ai-text" class="ai-comment">Veriler değerlendiriliyor...</p>
-        </div>
-        <div class="card map-card" style="grid-column: 1 / -1; margin-bottom: 20px;">
-            <div class="map-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                <h3 class="card-title">🌐 Küresel Etki ve Risk Haritası</h3>
-                <button id="btn-fullscreen" class="btn-theme" style="font-size: 0.85rem; padding: 6px 12px; display: flex; gap: 5px; align-items: center;">
-                    <span>⛶</span> Tam Ekran
-                </button>
-            </div>
+    <div class="card" style="grid-column:span 2">
+        <div class="clabel">⚡ Son 24 Saat Tahmini (Gerçek Zamanlı)</div>
+        <div id="forecastText" style="font-family:var(--fm);font-size:.8rem">Yükleniyor...</div>
+    </div>
 
-            <div class="map-layout" style="display: flex; gap: 20px; flex-wrap: wrap;">
-                <div id="map-container" style="flex: 1 1 65%; position: relative;">
-                    <div id="world-map" style="height: 450px; width: 100%; border-radius: 8px; z-index: 1; border: 1px solid var(--border-color);"></div>
-                </div>
+    <div class="card chart-card">
+        <div class="clabel">Kp İndeksi Geçmiş (Canlı Son 20 Ölçüm)</div>
+        <div class="chart-wrap"><canvas id="kpchart"></canvas></div>
+    </div>
 
-                <div class="risk-list-container" style="flex: 1 1 30%; background: var(--bg-main); padding: 20px; border-radius: 8px; border: 1px solid var(--border-color);">
-                    <h4 style="margin-bottom: 15px; color: var(--text-main); font-size: 1rem; display: flex; align-items: center; gap: 8px;">
-                        🚨 Aktif Risk Bölgeleri
-                    </h4>
-                    <ul id="risk-regions-list" style="list-style-type: none; padding: 0; display: flex; flex-direction: column; gap: 10px;">
-                        <li style="color: var(--text-muted); font-size: 0.9rem;">Canlı veriler bekleniyor...</li>
-                    </ul>
-                </div>
-            </div>
-        </div>
+    <div class="footer">
+        <div class="fi"><strong>📡 Gerçek Zamanlı Veri</strong><span>NOAA SWPC · DSCOVR & GOES</span></div>
+        <div class="fi"><strong>🤖 Profil Odaklı AI</strong><span>Kişiye özel uyarı</span></div>
+        <div class="fi"><strong>🏫 BFK Lisesi StarWay</strong><span>Uzay Havası Erken Uyarı</span></div>
+    </div>
+</main>
 
-        <div class="card sim-control-panel" style="grid-column: 1 / -1; margin-top: 20px; background: rgba(139, 92, 246, 0.05); border: 2px dashed #8b5cf6;">
-            <h4 style="color: #8b5cf6; margin-bottom: 15px; text-transform: uppercase;">🎮 Jüri Sunum Simülatörü</h4>
-            <div style="display: flex; gap: 20px; align-items: center;">
-                <label for="kp-slider" style="color: var(--text-main); font-weight: 600;">Test Kp İndeksi:</label>
-                <input type="range" id="kp-slider" min="0" max="9" step="1" value="3" style="flex: 1; cursor: pointer;">
-                <span id="kp-slider-value" style="color: #8b5cf6; font-size: 1.5rem; font-weight: 700;">3</span>
-            </div>
-            <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 10px; font-style: italic;">
-                * Kaydırıcıyı hareket ettirerek harita ve listenin fırtına şiddetine göre nasıl değiştiğini sunumda jüriye gösterin.
-            </p>
-        </div>
-        <div class="card chart-card">
-            <h3 class="card-title">Manyetik Dalgalanma (Kp)</h3>
-            <div class="chart-container">
-                <canvas id="kpChart"></canvas>
-            </div>
-        </div>
-    <footer class="data-sources">
-            <div class="source-item">
-                <span class="source-icon">📡</span>
-                <p><strong>Canlı Uzay Havası Verileri:</strong> NOAA (Ulusal Okyanus ve Atmosfer İdaresi) - Uzay Havası Tahmin Merkezi (SWPC) API</p>
-            </div>
-            <div class="source-item">
-                <span class="source-icon">🧠</span>
-                <p><strong>Yapay Zeka Motoru:</strong> Google Gemini 1.5 Pro - Doğal Dil İşleme ve Risk Analizi</p>
-            </div>
-
-        </footer>
-    </main>
-
-    <script src="js/app.js"></script>
+<script src="js/app.js" type="module"></script>
 </body>
 </html>

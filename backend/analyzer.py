@@ -1,3 +1,4 @@
+# analyzer.py
 class SpaceWeatherAnalyzer:
     def __init__(self):
         # NOAA G-Scale (Jeomanyetik Fırtına Ölçeği)
@@ -70,7 +71,7 @@ class SpaceWeatherAnalyzer:
         return report
 
 
-# Test Bloğu (Bu iki dosyayı birleştirip test edelim)
+# Test Bloğu
 if __name__ == "__main__":
     from fetch_data import SpaceWeatherDataFetcher
 
