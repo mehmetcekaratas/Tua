@@ -1,4 +1,3 @@
-<!-- index.html -->
 <!DOCTYPE html>
 <html lang="tr" data-theme="dark">
 <head>
@@ -16,6 +15,32 @@
         }
     </script>
     <link rel="stylesheet" href="css/style.css">
+    <style>
+        /* Tam Ekran Butonu Stili - sadece ek olarak */
+        .fullscreen-btn {
+            position: absolute;
+            bottom: 12px;
+            right: 12px;
+            z-index: 20;
+            background: rgba(0, 212, 255, .2);
+            border: 1px solid var(--cyan);
+            color: var(--cyan);
+            border-radius: 6px;
+            padding: 6px 12px;
+            font-size: .7rem;
+            font-family: var(--fm);
+            cursor: pointer;
+            transition: all .2s;
+            backdrop-filter: blur(8px);
+        }
+        .fullscreen-btn:hover {
+            background: var(--cyan);
+            color: #000;
+        }
+        .card {
+            position: relative;
+        }
+    </style>
 </head>
 <body>
 <canvas id="sf"></canvas>
@@ -33,17 +58,8 @@
         </div>
     </div>
     <div class="hdr-r">
-        <div class="profile-selector">
-            <span>👤 Profil:</span>
-            <select id="profileSelect">
-                <option value="ogrenci">🎓 Öğrenci</option>
-                <option value="pilot">✈️ Pilot</option>
-                <option value="uydum">🛰️ Uydu Operatörü</option>
-                <option value="radyo">📻 Radyo Meraklısı</option>
-                <option value="enerji">⚡ Enerji Sistemi</option>
-            </select>
-        </div>
         <button class="btn mode-toggle-btn" id="modeToggleBtn">🌐 Canlı Mod</button>
+        <button class="btn" id="riskMapBtn" style="background:rgba(255,140,0,.15);border-color:var(--orange);color:var(--orange);">🗺️ Risk Haritası</button>
         <div class="conn-pill"><div class="dot" id="cdot"></div><span id="ctxt">Bağlanıyor...</span></div>
         <button class="btn" id="tbtn">☀️ Gündüz</button>
         <button class="btn whatsapp-btn" id="whatsappShareBtn">📱 WhatsApp Uyarı</button>
@@ -63,7 +79,7 @@
 
     <!-- Kp Gauge -->
     <div class="card kp-card">
-        <div class="clabel">Kp Manyetik İndeksi (Canlı)</div>
+        <div class="clabel">Kp Manyetik İndeksi (Canlı NOAA)</div>
         <svg class="gauge-svg" viewBox="0 0 200 115">
             <defs><linearGradient id="gg"><stop offset="0%" stop-color="#00ff88"/><stop offset="44%" stop-color="#ffd700"/><stop offset="72%" stop-color="#ff8c00"/><stop offset="100%" stop-color="#b44cf0"/></linearGradient></defs>
             <path d="M20 108 A80 80 0 0 1 180 108" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="13"/>
@@ -79,21 +95,22 @@
     </div>
 
     <div class="card wind-card">
-        <div class="clabel">Güneş Rüzgarı (DSCOVR)</div>
+        <div class="clabel">Güneş Rüzgarı (DSCOVR/NOAA)</div>
         <div class="wind-row"><span class="wind-n" id="windn">—</span><span class="wind-u">km/s</span></div>
         <div class="wbar-bg"><div class="wbar" id="wbar" style="width:0%"></div></div>
         <div class="wbadge" id="wbadge">Veri Bekleniyor</div>
     </div>
 
     <div class="card ai-card">
-        <div class="clabel">🤖 Profil Odaklı AI Analizi</div>
-        <div class="ai-txt" id="aitxt">Profil seçin, canlı verilerle analiz yapılıyor...</div>
+        <div class="clabel">🤖 AI Analizi (Canlı Veriye Göre)</div>
+        <div class="ai-txt" id="aitxt">Canlı verilerle analiz yapılıyor...</div>
     </div>
 
-    <!-- 3D Sun-Earth -->
-    <div class="card" style="grid-column:span 2;padding:0;overflow:hidden">
-        <div class="clabel" style="padding:12px 16px 0">☀️ Gerçekçi 3D Güneş & Dünya | Parçacık Akışı (Canlı rüzgar hızına göre)</div>
-        <div id="sunEarth3D" style="height:420px;width:100%;background:#010007"></div>
+    <!-- 3D Sun-Earth - düzeltilmiş -->
+    <div class="card" style="grid-column:span 2;padding:0;overflow:hidden;position:relative">
+        <div class="clabel" style="padding:12px 16px 0;margin-bottom:0;">☀️ Gerçekçi 3D Güneş & Dünya | Parçacık Akışı (Canlı rüzgar hızına göre)</div>
+        <div id="sunEarth3D" style="height:420px;width:100%;background:#010007;border-radius:0 0 12px 12px;"></div>
+        <button class="fullscreen-btn" id="sunEarthFullscreenBtn" style="bottom:12px;right:12px;">🔲 Yeni Pencerede Aç</button>
     </div>
 
     <!-- Historical comparison -->
@@ -103,19 +120,22 @@
         <div id="compText" style="margin-top:12px;font-size:.8rem;font-family:var(--fm)"></div>
     </div>
 
-    <!-- Aurora Tahmin Küresi -->
-    <div class="card">
-        <div class="clabel">🌌 Aurora Tahmin Küresi (Kp bazlı)</div>
-        <canvas id="auroraCanvas" class="aurora-canvas" width="400" height="180" style="width:100%;height:auto;background:#030b18"></canvas>
-        <div id="auroraDesc" style="font-size:.7rem;margin-top:8px"></div>
+    <!-- Aurora Tahmin Küresi - düzeltilmiş -->
+    <div class="card" style="position:relative;">
+        <div class="clabel" style="margin-bottom:4px;">🌌 Aurora Tahmin Küresi — 3D · Mouse ile Döndür</div>
+        <canvas id="auroraCanvas" class="aurora-canvas" width="400" height="180" style="display:none"></canvas>
+        <div id="auroraDesc" style="font-size:.7rem;margin-top:4px;padding:0 4px;line-height:1.3;"></div>
+        <button class="fullscreen-btn" id="auroraFullscreenBtn" style="bottom:8px;right:12px;">🔲 Yeni Pencerede Aç</button>
     </div>
 
-    <!-- Manyetosfer Bükülmesi -->
-    <div class="card">
-        <div class="clabel">🧲 Manyetosfer Bükülmesi (Güneş rüzgarı etkisi)</div>
-        <canvas id="magCanvas" class="field-line-canvas" width="500" height="180"></canvas>
-        <div id="magDesc" style="font-size:.65rem;margin-top:5px"></div>
+    <!-- Manyetosfer Bükülmesi - düzeltilmiş -->
+    <div class="card" style="position:relative;">
+        <div class="clabel" style="margin-bottom:4px;">🧲 Manyetosfer Bükülmesi — 3D Dipole · Mouse ile Döndür</div>
+        <canvas id="magCanvas" class="field-line-canvas" width="500" height="180" style="display:none"></canvas>
+        <div id="magDesc" style="font-size:.65rem;margin-top:4px;padding:0 4px;line-height:1.3;"></div>
+        <button class="fullscreen-btn" id="magFullscreenBtn" style="bottom:8px;right:12px;">🔲 Yeni Pencerede Aç</button>
     </div>
+
 
     <!-- Risk bölgeleri -->
     <div class="card risk-card">
@@ -123,13 +143,17 @@
         <div id="rlist"></div>
     </div>
 
-    <!-- Simülasyon -->
-    <div class="card sim-card">
-        <div class="sim-hdr"><span class="sim-title">⚡ Manyetosfer Simülasyonu</span><div class="live-badge"><div class="live-d"></div>CANLI</div></div>
-        <canvas id="sim"></canvas>
+    <!-- Simülasyon - düzeltilmiş -->
+    <div class="card sim-card" style="position:relative;">
+        <div class="sim-hdr" style="margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;">
+            <span class="sim-title">⚡ Manyetosfer Simülasyonu</span>
+            <div class="live-badge"><div class="live-d"></div>CANLI</div>
+        </div>
+        <canvas id="sim" style="height:210px;width:100%;background:#02050d;border-radius:8px;margin-top:0;"></canvas>
+        <button class="fullscreen-btn" id="sim2DFullscreenBtn" style="bottom:8px;right:12px;">🔲 Yeni Pencerede Aç</button>
     </div>
 
-    <!-- Jüri Simülatörü -->
+    <!-- Simülasyon Kontrolleri -->
     <div class="card panel-card">
         <div class="clabel">🎮 Simülasyon Kontrolleri (Manuel)</div>
         <input type="range" id="slider" min="0" max="9" step="1" value="3">
@@ -157,17 +181,113 @@
     </div>
 
     <div class="card chart-card">
-        <div class="clabel">Kp İndeksi Geçmiş (Canlı Son 20 Ölçüm)</div>
+        <div class="clabel">Kp İndeksi Geçmiş (Son 24 NOAA Ölçümü)</div>
         <div class="chart-wrap"><canvas id="kpchart"></canvas></div>
     </div>
 
     <div class="footer">
         <div class="fi"><strong>📡 Gerçek Zamanlı Veri</strong><span>NOAA SWPC · DSCOVR & GOES</span></div>
-        <div class="fi"><strong>🤖 Profil Odaklı AI</strong><span>Kişiye özel uyarı</span></div>
+        <div class="fi"><strong>🤖 Canlı AI Analizi</strong><span>NOAA verilerine dayalı otomatik değerlendirme</span></div>
         <div class="fi"><strong>🏫 BFK Lisesi StarWay</strong><span>Uzay Havası Erken Uyarı</span></div>
     </div>
 </main>
 
 <script src="js/app.js" type="module"></script>
+
+<script type="module">
+// Tam ekran butonları için ek kod - mevcut app.js'yi bozmadan çalışır
+// Global değişkenleri window'dan al (app.js tarafından ayarlanacak)
+
+// Yeni pencere açma fonksiyonları
+function openSunEarthWindow() {
+    const isLive = window.isLiveMode !== undefined ? window.isLiveMode : true;
+    const kp = isLive ? (window.currentKp || 3) : (window.simKp || 3);
+    const wind = isLive ? (window.currentWind || 400) : (window.simWind || 400);
+    const mode = isLive ? 'live' : 'sim';
+
+    const win = window.open('simulations/sunearth.html', 'StarWaySunEarth',
+        'width=1400,height=900,menubar=no,toolbar=no,location=no,status=no,scrollbars=yes,resizable=yes');
+    if (win) {
+        win.onload = () => {
+            win.postMessage({ type: 'INIT_SUNEARTH', kp, wind, mode }, '*');
+        };
+        window._sunEarthWin = win;
+    }
+}
+
+function openAuroraWindow() {
+    const isLive = window.isLiveMode !== undefined ? window.isLiveMode : true;
+    const kp = isLive ? (window.currentKp || 3) : (window.simKp || 3);
+    const mode = isLive ? 'live' : 'sim';
+
+    const win = window.open('simulations/aurora.html', 'StarWayAurora',
+        'width=1200,height=800,menubar=no,toolbar=no,location=no,status=no,scrollbars=yes,resizable=yes');
+    if (win) {
+        win.onload = () => {
+            win.postMessage({ type: 'INIT_AURORA', kp, mode }, '*');
+        };
+        window._auroraWin = win;
+    }
+}
+
+function openMagnetosphereWindow() {
+    const isLive = window.isLiveMode !== undefined ? window.isLiveMode : true;
+    const kp = isLive ? (window.currentKp || 3) : (window.simKp || 3);
+    const wind = isLive ? (window.currentWind || 400) : (window.simWind || 400);
+    const mode = isLive ? 'live' : 'sim';
+
+    const win = window.open('simulations/magnetosphere.html', 'StarWayMag',
+        'width=1200,height=800,menubar=no,toolbar=no,location=no,status=no,scrollbars=yes,resizable=yes');
+    if (win) {
+        win.onload = () => {
+            win.postMessage({ type: 'INIT_MAG', kp, wind, mode }, '*');
+        };
+        window._magWin = win;
+    }
+}
+
+function openSim2DWindow() {
+    const isLive = window.isLiveMode !== undefined ? window.isLiveMode : true;
+    const kp = isLive ? (window.currentKp || 3) : (window.simKp || 3);
+    const wind = isLive ? (window.currentWind || 400) : (window.simWind || 400);
+    const mode = isLive ? 'live' : 'sim';
+
+    const win = window.open('simulations/sim2d.html', 'StarWaySim2D',
+        'width=1000,height=700,menubar=no,toolbar=no,location=no,status=no,scrollbars=yes,resizable=yes');
+    if (win) {
+        win.onload = () => {
+            win.postMessage({ type: 'INIT_SIM2D', kp, wind, mode }, '*');
+        };
+        window._sim2DWin = win;
+    }
+}
+
+// Butonları bağla
+document.getElementById('sunEarthFullscreenBtn')?.addEventListener('click', openSunEarthWindow);
+document.getElementById('auroraFullscreenBtn')?.addEventListener('click', openAuroraWindow);
+document.getElementById('magFullscreenBtn')?.addEventListener('click', openMagnetosphereWindow);
+document.getElementById('sim2DFullscreenBtn')?.addEventListener('click', openSim2DWindow);
+
+// Canlı veri değişimlerini yeni pencerelere ilet
+setInterval(() => {
+    const isLive = window.isLiveMode !== undefined ? window.isLiveMode : true;
+    const kp = isLive ? (window.currentKp || 3) : (window.simKp || 3);
+    const wind = isLive ? (window.currentWind || 400) : (window.simWind || 400);
+    const mode = isLive ? 'live' : 'sim';
+
+    if (window._sunEarthWin && !window._sunEarthWin.closed) {
+        window._sunEarthWin.postMessage({ type: 'UPDATE_DATA', kp, wind, mode }, '*');
+    }
+    if (window._auroraWin && !window._auroraWin.closed) {
+        window._auroraWin.postMessage({ type: 'UPDATE_DATA', kp, mode }, '*');
+    }
+    if (window._magWin && !window._magWin.closed) {
+        window._magWin.postMessage({ type: 'UPDATE_DATA', kp, wind, mode }, '*');
+    }
+    if (window._sim2DWin && !window._sim2DWin.closed) {
+        window._sim2DWin.postMessage({ type: 'UPDATE_DATA', kp, wind, mode }, '*');
+    }
+}, 2000);
+</script>
 </body>
 </html>

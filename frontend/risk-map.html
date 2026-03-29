@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StarWay — Güneş Fırtınası Risk Haritası</title>
+
+<!-- Leaflet -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<!-- Leaflet.heat -->
+<script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700&family=Space+Mono:wght@400;700&family=Exo+2:wght@300;700&display=swap" rel="stylesheet">
+
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+
+:root {
+    --void:  #02050d;
+    --panel: rgba(6,13,26,.92);
+    --glass: rgba(8,20,42,.85);
+    --border: rgba(56,139,253,.25);
+    --cyan:  #00d4ff;
+    --green: #00ff88;
+    --yellow:#ffd700;
+    --orange:#ff8c00;
+    --red:   #ff3b3b;
+    --purple:#b44cf0;
+    --text:  #e2eaf5;
+    --muted: #5a7a9f;
+}
+
+html, body { width:100%; height:100%; background:var(--void); color:var(--text); font-family:'Exo 2',sans-serif; overflow:hidden; }
+
+/* ── HEADER ── */
+#topbar {
+    position:fixed; top:0; left:0; right:0; z-index:1000;
+    height:52px; display:flex; align-items:center; justify-content:space-between;
+    padding:0 18px;
+    background:rgba(2,5,13,.9); backdrop-filter:blur(20px);
+    border-bottom:1px solid var(--border);
+}
+.tb-brand { display:flex; align-items:center; gap:10px; }
+.tb-title { font-family:'Rajdhani',sans-serif; font-size:1.1rem; font-weight:700; letter-spacing:3px; color:var(--cyan); text-transform:uppercase; }
+.tb-sub   { font-family:'Space Mono',monospace; font-size:.58rem; color:var(--muted); }
+
+.tb-stats { display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+.stat-pill {
+    background:rgba(0,212,255,.08); border:1px solid var(--border);
+    border-radius:20px; padding:4px 14px;
+    font-family:'Space Mono',monospace; font-size:.68rem; color:var(--cyan);
+    display:flex; align-items:center; gap:8px;
+}
+.stat-val { font-size:.88rem; font-weight:700; }
+
+.tb-right { display:flex; align-items:center; gap:10px; }
+.close-btn {
+    background:rgba(255,59,59,.15); border:1px solid var(--red);
+    color:var(--red); padding:5px 14px; border-radius:6px;
+    font-family:'Rajdhani',sans-serif; font-size:.85rem; font-weight:700;
+    cursor:pointer; transition:all .2s; letter-spacing:1px;
+}
+.close-btn:hover { background:var(--red); color:#fff; }
+
+/* ── MAP ── */
+#map {
+    position:fixed; top:52px; left:0; right:0; bottom:140px;
+    z-index:1;
+}
+
+/* ── LEGEND ── */
+#legend {
+    position:fixed; bottom:0; left:0; right:0; z-index:1000;
+    height:140px;
+    background:var(--glass); backdrop-filter:blur(20px);
+    border-top:1px solid var(--border);
+    display:flex; align-items:center; padding:0 20px; gap:20px;
+    flex-wrap:wrap;
+}
+.legend-scale {
+    flex:1; min-width:260px;
+}
+.legend-title { font-family:'Space Mono',monospace; font-size:.62rem; color:var(--muted); letter-spacing:2px; margin-bottom:10px; }
+.gradient-bar {
+    height:14px; border-radius:7px;
+    background:linear-gradient(to right,
+        rgba(0,255,136,.3),
+        rgba(255,215,0,.6),
+        rgba(255,140,0,.8),
+        rgba(255,59,59,1),
+        rgba(180,76,240,1));
+    margin-bottom:6px; position:relative; border:1px solid rgba(255,255,255,.1);
+}
+.gradient-labels { display:flex; justify-content:space-between; font-family:'Space Mono',monospace; font-size:.58rem; color:var(--muted); }
+
+.risk-categories { display:flex; gap:10px; flex-wrap:wrap; }
+.rc {
+    display:flex; align-items:center; gap:6px;
+    background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08);
+    border-radius:6px; padding:6px 10px;
+    font-size:.7rem; white-space:nowrap;
+}
+.rc-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+
+.legend-info { flex:1; min-width:200px; max-width:320px; }
+.li-kp { font-family:'Rajdhani',sans-serif; font-size:2.4rem; font-weight:700; line-height:1; }
+.li-desc { font-size:.72rem; color:var(--muted); margin-top:4px; line-height:1.5; }
+
+/* ── KP SLIDER PANEL ── */
+#kp-ctrl {
+    position:fixed; top:64px; right:12px; z-index:999;
+    background:var(--panel); border:1px solid var(--border); border-radius:10px;
+    padding:12px 14px; width:200px;
+    backdrop-filter:blur(14px); font-family:'Space Mono',monospace; font-size:.65rem;
+    box-shadow:0 4px 20px rgba(0,0,0,.4);
+}
+.kp-ctrl-title { color:var(--cyan); font-size:.65rem; letter-spacing:2px; margin-bottom:8px; }
+.kp-row { display:flex; justify-content:space-between; margin-bottom:4px; }
+input[type=range] {
+    width:100%; height:4px; margin:6px 0;
+    background:linear-gradient(90deg,var(--green),var(--yellow),var(--orange),var(--red),var(--purple));
+    border-radius:2px; outline:none; cursor:pointer;
+}
+.source-note { font-size:.56rem; color:var(--muted); margin-top:8px; line-height:1.5; }
+.fetch-btn {
+    width:100%; margin-top:8px; padding:5px; background:rgba(0,212,255,.12);
+    border:1px solid var(--cyan); color:var(--cyan); border-radius:5px;
+    font-family:'Space Mono',monospace; font-size:.62rem; cursor:pointer; transition:all .2s;
+}
+.fetch-btn:hover { background:rgba(0,212,255,.28); }
+
+/* ── POPUP ── */
+.leaflet-popup-content-wrapper {
+    background:rgba(6,13,26,.95) !important; border:1px solid var(--border) !important;
+    border-radius:8px !important; color:var(--text) !important;
+    font-family:'Exo 2',sans-serif; font-size:.8rem;
+    backdrop-filter:blur(12px);
+}
+.leaflet-popup-tip { background:rgba(6,13,26,.95) !important; }
+.popup-title { font-family:'Rajdhani',sans-serif; font-size:1rem; font-weight:700; color:var(--cyan); margin-bottom:6px; }
+.popup-row { display:flex; justify-content:space-between; gap:12px; margin:3px 0; }
+.popup-lbl { color:var(--muted); }
+.popup-val { font-weight:700; }
+
+/* Leaflet dark tiles */
+.leaflet-tile { filter:brightness(0.8) saturate(.9); }
+</style>
+</head>
+<body>
+
+<div id="topbar">
+    <div class="tb-brand">
+        <svg width="26" height="26" viewBox="0 0 32 32">
+            <circle cx="16" cy="16" r="14" stroke="#00d4ff" stroke-width="1.5" opacity=".4"/>
+            <circle cx="16" cy="16" r="7"  stroke="#00d4ff" stroke-width="1.5" opacity=".7"/>
+            <circle cx="16" cy="16" r="2.5" fill="#00d4ff"/>
+        </svg>
+        <div>
+            <div class="tb-title">StarWay · Risk Haritası</div>
+            <div class="tb-sub">GÜNEŞ FIRTINASI ETKİ ANALİZİ · GERÇEK ZAMANLI</div>
+        </div>
+    </div>
+    <div class="tb-stats">
+        <div class="stat-pill">Kp İndeksi <span class="stat-val" id="disp-kp" style="color:var(--green)">—</span></div>
+        <div class="stat-pill">Rüzgar <span class="stat-val" id="disp-wind" style="color:var(--cyan)">— km/s</span></div>
+        <div class="stat-pill">Durum <span class="stat-val" id="disp-status" style="color:var(--green)">YÜKLENIYOR</span></div>
+    </div>
+    <div class="tb-right">
+        <button class="close-btn" onclick="window.close()">✕ Kapat</button>
+    </div>
+</div>
+
+<div id="map"></div>
+
+<!-- Sağ üst Kp kontrolü -->
+<div id="kp-ctrl">
+    <div class="kp-ctrl-title">⚙ KP KONTROLÜ</div>
+    <div class="kp-row"><span>Kp İndeksi</span><span id="ctrl-kp-val" style="color:var(--yellow);font-weight:700;">3.0</span></div>
+    <input type="range" id="ctrl-kp" min="0" max="9" step="0.1" value="3">
+    <div class="kp-row"><span>Rüzgar km/s</span><span id="ctrl-wind-val" style="color:var(--green);font-weight:700;">400</span></div>
+    <input type="range" id="ctrl-wind" min="200" max="1200" step="10" value="400">
+    <button class="fetch-btn" id="fetchBtn">↻ NOAA'dan Veri Al</button>
+    <div class="source-note">Veriler NOAA SWPC'den<br>otomatik çekilir.</div>
+</div>
+
+<!-- Alt legend -->
+<div id="legend">
+    <div class="legend-scale">
+        <div class="legend-title">RİSK SEVİYESİ SKALASI</div>
+        <div class="gradient-bar"></div>
+        <div class="gradient-labels">
+            <span>Düşük</span><span>Hafif</span><span>Orta</span><span>Yüksek</span><span>Aşırı</span>
+        </div>
+        <div class="risk-categories" style="margin-top:10px;">
+            <div class="rc"><div class="rc-dot" style="background:#00ff88"></div>G0 Sakin</div>
+            <div class="rc"><div class="rc-dot" style="background:#ffd700"></div>G1 Zayıf</div>
+            <div class="rc"><div class="rc-dot" style="background:#ff8c00"></div>G2 Orta</div>
+            <div class="rc"><div class="rc-dot" style="background:#ff3b3b"></div>G3-4 Güçlü</div>
+            <div class="rc"><div class="rc-dot" style="background:#b44cf0"></div>G5 Aşırı</div>
+        </div>
+    </div>
+    <div class="legend-info">
+        <div class="li-kp" id="leg-kp" style="color:var(--green)">Kp 3.0</div>
+        <div class="li-desc" id="leg-desc">Normal seviye. Kutup bölgelerinde ufak aurora olasılığı.</div>
+    </div>
+    <div style="flex:1;min-width:200px;font-family:'Space Mono',monospace;font-size:.62rem;color:var(--muted);line-height:1.8;">
+        <div>🛰️ GPS/Navigasyon riski: <span id="l-gps" style="color:var(--text)">Düşük</span></div>
+        <div>📡 Radyo/HF iletişim: <span id="l-radio" style="color:var(--text)">Normal</span></div>
+        <div>⚡ Elektrik şebekesi: <span id="l-power" style="color:var(--text)">Normal</span></div>
+        <div>🌌 Aurora görünürlüğü: <span id="l-aurora" style="color:var(--text)">Kutup kuşağı</span></div>
+    </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// RISK HEATMAP DATA
+// Kp değerine göre dinamik ağırlık hesaplama
+// ═══════════════════════════════════════════════════════
+
+// Etki bölgesi tanımları: [lat, lng, baseRisk, category]
+// baseRisk: 0-1 arası, Kp ile çarpılır
+// category: 'aurora', 'grid', 'satellite', 'radio'
+const RISK_ZONES = [
+    // ── KUTUP BÖLGELERİ (aurora/yüksek manyetik bükülme) ──
+    // Grönland
+    [72, -40, 0.95, 'aurora'], [75, -20, 0.92, 'aurora'], [70, -55, 0.90, 'aurora'],
+    // İzlanda
+    [65, -18, 0.88, 'aurora'], [64, -22, 0.86, 'aurora'],
+    // Norveç/Finlandiya/İsveç
+    [70, 25, 0.92, 'aurora'], [68, 18, 0.90, 'aurora'], [66, 26, 0.88, 'aurora'],
+    [69, 18, 0.91, 'aurora'], [71, 28, 0.93, 'aurora'],
+    // Kuzey Rusya
+    [68, 33, 0.89, 'aurora'], [70, 55, 0.87, 'aurora'], [72, 80, 0.88, 'aurora'],
+    [70, 110, 0.86, 'aurora'], [68, 140, 0.85, 'aurora'],
+    // Kanada Kuzeyi / Alaska
+    [68, -135, 0.91, 'aurora'], [65, -145, 0.89, 'aurora'], [62, -138, 0.86, 'aurora'],
+    [70, -95, 0.90, 'aurora'], [75, -85, 0.92, 'aurora'], [80, -70, 0.94, 'aurora'],
+    // Kuzey Kutup
+    [85, 0, 0.98, 'aurora'], [82, 45, 0.96, 'aurora'], [80, -30, 0.95, 'aurora'],
+
+    // ── ELEKTRİK ŞEBEKESİ RİSK NOKTALARI ──
+    // Kuzey Amerika büyük şebeke düğümleri
+    [47, -71, 0.72, 'grid'],  // Quebec (1989 çöküşü!)
+    [43, -79, 0.65, 'grid'],  // Toronto
+    [45, -75, 0.68, 'grid'],  // Ottawa
+    [47, -95, 0.60, 'grid'],  // Minnesota
+    [48, -122, 0.55, 'grid'], // Seattle
+    [61, -150, 0.75, 'grid'], // Alaska (yüksek lat)
+    // İskandinavya şebekeleri
+    [59, 18, 0.65, 'grid'],   // Stockholm
+    [60, 11, 0.68, 'grid'],   // Oslo
+    [60, 25, 0.66, 'grid'],   // Helsinki
+    [56, 10, 0.62, 'grid'],   // Danimarka
+    // Kuzey Avrupa
+    [53, 10, 0.55, 'grid'],   // Hamburg
+    [55, 12, 0.58, 'grid'],   // Kopenhag
+    [57, 24, 0.60, 'grid'],   // Riga/Baltık
+    // Kuzey İngiltere/İskoçya
+    [56, -3, 0.60, 'grid'],   // Edinburgh
+    [54, -1, 0.55, 'grid'],   // Kuzey İngiltere
+    // Rusya büyük şebekeleri
+    [60, 30, 0.64, 'grid'],   // St. Petersburg
+    [55, 37, 0.52, 'grid'],   // Moskova
+
+    // ── GPS / UYDU SİGNALİ ETKİLENME ──
+    // Kutup rotaları (uçuş yolları)
+    [80, -70, 0.82, 'satellite'], [78, -40, 0.80, 'satellite'], [75, 0, 0.78, 'satellite'],
+    [73, 40, 0.76, 'satellite'],  [72, 80, 0.74, 'satellite'],
+    // Orta enlem GPS bozulma
+    [55, -3, 0.45, 'satellite'], [52, 5, 0.42, 'satellite'], [50, 10, 0.40, 'satellite'],
+    [48, 2, 0.38, 'satellite'],  [46, 14, 0.35, 'satellite'],
+    // Kuzey Amerika GPS
+    [42, -83, 0.40, 'satellite'], [40, -74, 0.38, 'satellite'], [34, -118, 0.30, 'satellite'],
+
+    // ── RADYO/HF İLETİŞİM ──
+    // İyon küre bozulması (kuzeyde daha şiddetli)
+    [60, -50, 0.70, 'radio'], [55, -3, 0.55, 'radio'], [50, 10, 0.48, 'radio'],
+    [58, 56, 0.60, 'radio'],  [63, 28, 0.65, 'radio'],
+    [40, -80, 0.35, 'radio'], [35, 35, 0.32, 'radio'], [39, 35, 0.30, 'radio'], // Türkiye
+    [41, 29, 0.28, 'radio'],
+
+    // ── ORTA ENLEM (Kp >= 7 durumda yüksek risk) ──
+    // Orta Avrupa
+    [51, 10, 0.30, 'aurora'], [48, 16, 0.28, 'aurora'], [47, 19, 0.26, 'aurora'],
+    [52, 21, 0.30, 'aurora'], [50, 30, 0.28, 'aurora'],
+    // Japonya
+    [36, 136, 0.35, 'aurora'], [35, 139, 0.33, 'aurora'],
+    // Orta Amerika
+    [40, -80, 0.30, 'aurora'], [41, -87, 0.32, 'aurora'],
+    // Türkiye (Kp >= 8 olunca etkiler)
+    [39, 35, 0.22, 'aurora'], [41, 29, 0.20, 'aurora'],
+    [37, 35, 0.18, 'aurora'],
+
+    // ── GÜNEY KUTBU ──
+    [-70, 0, 0.92, 'aurora'],  [-75, 90, 0.90, 'aurora'], [-72, 170, 0.88, 'aurora'],
+    [-65, -60, 0.85, 'aurora'], [-68, -130, 0.86, 'aurora'],
+    // Güney Amerika güney ucu
+    [-53, -70, 0.65, 'aurora'], [-55, -68, 0.68, 'aurora'],
+    [-45, -75, 0.50, 'aurora'],
+    // Yeni Zelanda / Avustralya
+    [-45, 170, 0.55, 'aurora'], [-43, 147, 0.50, 'aurora'],
+];
+
+// ── Leaflet Map ──
+const map = L.map('map', {
+    center: [30, 10],
+    zoom: 3,
+    minZoom: 2,
+    maxZoom: 10,
+    zoomControl: true,
+    attributionControl: true
+});
+
+// Dark tile (CartoDB dark matter)
+L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+    attribution: '© OpenStreetMap © CartoDB | NOAA SWPC',
+    subdomains: 'abcd', maxZoom: 19
+}).addTo(map);
+
+// ── State ──
+let currentKp   = 3.0;
+let currentWind = 400;
+let heatLayer   = null;
+let cityMarkers = [];
+
+// ── Kp → risk renk skalası ──
+function kpColor(kp) {
+    if (kp < 4) return '#00ff88';
+    if (kp < 5) return '#ffd700';
+    if (kp < 6) return '#ff8c00';
+    if (kp < 8) return '#ff3b3b';
+    return '#b44cf0';
+}
+
+function kpLabel(kp) {
+    if (kp < 4) return { g:'G0', lbl:'Normal',     desc:'Kutup bölgelerinde ufak aurora olasılığı. Teknolojik altyapı normal.' };
+    if (kp < 5) return { g:'G0', lbl:'Aktif',      desc:'Aurora halkaları genişliyor. Radyo iletişiminde hafif parazit.' };
+    if (kp < 6) return { g:'G1', lbl:'Zayıf Fırtına', desc:'Güç şebekelerinde dalgalanmalar. Kutup rotası GPS etkilenebilir.' };
+    if (kp < 7) return { g:'G2', lbl:'Orta Fırtına',  desc:'Uydu yörüngesi sürüklenmesi. Kuzey Avrupa\'da aurora görülüyor.' };
+    if (kp < 8) return { g:'G3', lbl:'Güçlü Fırtına', desc:'GPS tutarsızlıkları. İskandinav şebekeleri risk altında.' };
+    if (kp < 9) return { g:'G4', lbl:'Şiddetli',       desc:'Kuzey Yarımküre şebekeleri tehlikede! Uydu komutlarını erteleyin.' };
+    return       { g:'G5', lbl:'AŞIRI FIRTINA',    desc:'TÜRKİYE DAHİL geniş alanda aurora! Küresel şebeke çöküş riski!' };
+}
+
+// ── Heatmap oluştur ──
+function buildHeatmap(kp, wind) {
+    if (heatLayer) map.removeLayer(heatLayer);
+
+    const windFactor = Math.min(2.0, Math.max(0.3, wind / 400));
+    const kpNorm = kp / 9;
+
+    // Her noktanın ağırlığını kp + kategori'ye göre hesapla
+    const pts = RISK_ZONES.map(([lat, lng, base, cat]) => {
+        let w = base * kpNorm;
+
+        // Kutup bölgeleri her zaman yüksek
+        const absLat = Math.abs(lat);
+        if (absLat > 60) w *= 1.0;
+        else if (absLat > 50) w *= Math.max(0, (kp - 3) / 4);  // Kp >= 3'ten itibaren
+        else if (absLat > 40) w *= Math.max(0, (kp - 5) / 4);  // Kp >= 5 gerekli
+        else w *= Math.max(0, (kp - 7) / 2);                    // Kp >= 7 gerekli
+
+        // Rüzgar hızı grid ve uydu riskini artırır
+        if (cat === 'grid' || cat === 'satellite') w *= windFactor;
+
+        return [lat, lng, Math.min(1.0, Math.max(0, w))];
+    }).filter(p => p[2] > 0.02);
+
+    // Kp'ye göre renk gradyanı
+    const gradient = kp < 4 ? { 0.2:'#004d00', 0.5:'#00aa44', 1.0:'#00ff88' } :
+                     kp < 6 ? { 0.2:'#554400', 0.5:'#aa8800', 0.8:'#ffd700', 1.0:'#ff8c00' } :
+                     kp < 8 ? { 0.2:'#550000', 0.5:'#cc2200', 0.8:'#ff4400', 1.0:'#ff0000' } :
+                               { 0.2:'#330033', 0.5:'#7700aa', 0.8:'#cc00ff', 1.0:'#b44cf0' };
+
+    const radius = isMobile() ? 35 : 55;
+    const blur   = isMobile() ? 20 : 35;
+
+    heatLayer = L.heatLayer(pts, {
+        radius, blur,
+        maxZoom: 8,
+        max: 0.85,
+        gradient
+    }).addTo(map);
+
+    updateLegend(kp, wind);
+    updateMarkers(kp);
+}
+
+function isMobile() { return window.innerWidth < 768; }
+
+// ── Şehir marker'ları (risk popup'ları) ──
+const CITIES = [
+    // [lat, lng, name, country, isHighRisk]
+    [71, 25,  'Tromsø',    'Norveç',  true],
+    [64, -22, 'Reykjavik', 'İzlanda', true],
+    [60, 25,  'Helsinki',  'Finlandiya', true],
+    [59, 18,  'Stockholm', 'İsveç',   true],
+    [47, -71, 'Quebec',    'Kanada',   true],
+    [61, -150,'Anchorage', 'ABD-Alaska', true],
+    [55, 37,  'Moskova',   'Rusya',    false],
+    [51, 10,  'Almanya',   'Orta Av.', false],
+    [41, 29,  'İstanbul',  'Türkiye',  false],
+    [39, 35,  'Türkiye (iç)', 'Anadolu', false],
+    [35, 139, 'Tokyo',     'Japonya',  false],
+    [40, -74, 'New York',  'ABD',      false],
+    [-53,-70, 'Punta Arenas','Şili',   true],
+    [-45, 170,'Yeni Zelanda','NZ',     true],
+];
+
+function getRiskForCity(lat, lng, kp) {
+    const absLat = Math.abs(lat);
+    if (absLat > 62) return Math.min(10, kp * 1.1);
+    if (absLat > 50) return Math.max(0, (kp - 3) * 1.5);
+    if (absLat > 40) return Math.max(0, (kp - 5) * 2);
+    return Math.max(0, (kp - 7) * 3);
+}
+
+function buildPopupHTML(city, kp, risk) {
+    const r   = Math.min(10, risk);
+    const rPct = (r / 10 * 100).toFixed(0);
+    const col  = r < 2 ? 'var(--green)' : r < 5 ? 'var(--yellow)' : r < 7 ? 'var(--orange)' : r < 9 ? 'var(--red)' : 'var(--purple)';
+    const auroraLat = Math.abs(city[0]) >= 62 ? (kp >= 3 ? '✅ Görünür' : '—') :
+                      Math.abs(city[0]) >= 50 ? (kp >= 5 ? '🟡 Olası' : '—') :
+                      Math.abs(city[0]) >= 40 ? (kp >= 7 ? '🟠 Mümkün' : '—') :
+                                                (kp >= 9 ? '🔴 Nadir' : '—');
+    const gpsFx  = kp >= 7 ? '⚠️ Bozulma' : kp >= 5 ? '🟡 Hafif' : '✅ Normal';
+    const gridFx = kp >= 8 ? '🔴 Yüksek'  : kp >= 6 ? '🟡 Hafif' : '✅ Normal';
+    return `
+        <div class="popup-title">📍 ${city[2]} · ${city[3]}</div>
+        <div class="popup-row"><span class="popup-lbl">Risk Skoru</span><span class="popup-val" style="color:${col}">${rPct}%</span></div>
+        <div class="popup-row"><span class="popup-lbl">GPS Etkisi</span><span class="popup-val">${gpsFx}</span></div>
+        <div class="popup-row"><span class="popup-lbl">Şebeke Riski</span><span class="popup-val">${gridFx}</span></div>
+        <div class="popup-row"><span class="popup-lbl">Aurora</span><span class="popup-val">${auroraLat}</span></div>
+        <div class="popup-row"><span class="popup-lbl">Kp / Rüzgar</span><span class="popup-val" style="color:var(--cyan)">Kp${kp.toFixed(1)} / ${Math.round(currentWind)} km/s</span></div>`;
+}
+
+function updateMarkers(kp) {
+    cityMarkers.forEach(m => map.removeLayer(m));
+    cityMarkers = [];
+
+    CITIES.forEach(city => {
+        const risk = getRiskForCity(city[0], city[1], kp);
+        if (risk < 0.5 && !city[4]) return;
+
+        const r   = Math.min(10, risk);
+        const col = r < 2 ? '#00ff88' : r < 5 ? '#ffd700' : r < 7 ? '#ff8c00' : r < 9 ? '#ff3b3b' : '#b44cf0';
+        const sz  = Math.max(8, Math.min(20, 6 + r * 1.4));
+
+        const icon = L.divIcon({
+            className: '',
+            html: `<div style="
+                width:${sz}px;height:${sz}px;border-radius:50%;
+                background:${col};opacity:0.85;
+                border:2px solid rgba(255,255,255,.4);
+                box-shadow:0 0 ${sz}px ${col};
+                animation:pulse 2s infinite;
+            "></div>`,
+            iconSize: [sz, sz], iconAnchor: [sz/2, sz/2]
+        });
+
+        const marker = L.marker([city[0], city[1]], { icon });
+        marker.bindPopup(buildPopupHTML(city, kp, risk), { maxWidth: 260 });
+        marker.addTo(map);
+        cityMarkers.push(marker);
+    });
+}
+
+function updateLegend(kp, wind) {
+    const col  = kpColor(kp);
+    const info = kpLabel(kp);
+
+    document.getElementById('leg-kp').textContent    = `Kp ${kp.toFixed(1)} · ${info.g} ${info.lbl}`;
+    document.getElementById('leg-kp').style.color    = col;
+    document.getElementById('leg-desc').textContent  = info.desc;
+
+    document.getElementById('disp-kp').textContent     = kp.toFixed(1);
+    document.getElementById('disp-kp').style.color     = col;
+    document.getElementById('disp-wind').textContent   = `${Math.round(wind)} km/s`;
+    document.getElementById('disp-status').textContent = info.lbl;
+    document.getElementById('disp-status').style.color = col;
+
+    document.getElementById('l-gps').textContent   = kp >= 7 ? '⚠️ Yüksek bozulma' : kp >= 5 ? '🟡 Hafif etki'   : '✅ Normal';
+    document.getElementById('l-radio').textContent = kp >= 6 ? '⚠️ Parazit'         : kp >= 4 ? '🟡 Hafif'       : '✅ Normal';
+    document.getElementById('l-power').textContent = kp >= 8 ? '🔴 Kritik risk'      : kp >= 6 ? '🟠 İzleniyor'  : '✅ Normal';
+    document.getElementById('l-aurora').textContent= kp >= 7 ? '🔴 Orta enlemler (TR!)' : kp >= 5 ? '🟠 Kuzey Av.' : kp >= 3 ? '🟡 Kutup kuşağı' : '⚪ Kutup yalnızca';
+
+    document.getElementById('l-gps').style.color   = kp >= 7 ? 'var(--red)'    : kp >= 5 ? 'var(--yellow)' : 'var(--green)';
+    document.getElementById('l-radio').style.color = kp >= 6 ? 'var(--orange)' : kp >= 4 ? 'var(--yellow)' : 'var(--green)';
+    document.getElementById('l-power').style.color = kp >= 8 ? 'var(--red)'    : kp >= 6 ? 'var(--orange)' : 'var(--green)';
+    document.getElementById('l-aurora').style.color= kp >= 7 ? 'var(--red)'    : kp >= 3 ? 'var(--yellow)' : 'var(--muted)';
+}
+
+// ── Kontroller ──
+const kpSlider   = document.getElementById('ctrl-kp');
+const windSlider = document.getElementById('ctrl-wind');
+
+kpSlider.addEventListener('input', () => {
+    currentKp = parseFloat(kpSlider.value);
+    document.getElementById('ctrl-kp-val').textContent = currentKp.toFixed(1);
+    buildHeatmap(currentKp, currentWind);
+});
+
+windSlider.addEventListener('input', () => {
+    currentWind = parseInt(windSlider.value);
+    document.getElementById('ctrl-wind-val').textContent = currentWind;
+    buildHeatmap(currentKp, currentWind);
+});
+
+// ── NOAA Veri Çekme ──
+async function fetchNOAA() {
+    const btn = document.getElementById('fetchBtn');
+    btn.textContent = '⏳ Çekiliyor...';
+    try {
+        const [kpRes, windRes] = await Promise.all([
+            fetch('https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json'),
+            fetch('https://services.swpc.noaa.gov/products/solar-wind/plasma-1-day.json')
+        ]);
+        let kpVal = null, windVal = null;
+        if (kpRes.ok) {
+            const raw = await kpRes.json();
+            for (let i = raw.length - 1; i >= 1; i--) {
+                const v = parseFloat(raw[i][1]);
+                if (!isNaN(v)) { kpVal = v; break; }
+            }
+        }
+        if (windRes.ok) {
+            const raw = await windRes.json();
+            for (let i = raw.length - 1; i >= 1; i--) {
+                const v = parseFloat(raw[i][2]);
+                if (!isNaN(v) && v > 0) { windVal = v; break; }
+            }
+        }
+        if (kpVal !== null) {
+            currentKp = kpVal;
+            kpSlider.value = kpVal;
+            document.getElementById('ctrl-kp-val').textContent = kpVal.toFixed(1);
+        }
+        if (windVal !== null) {
+            currentWind = windVal;
+            windSlider.value = windVal;
+            document.getElementById('ctrl-wind-val').textContent = Math.round(windVal);
+        }
+        buildHeatmap(currentKp, currentWind);
+        btn.textContent = '✓ Güncellendi';
+        setTimeout(() => btn.textContent = '↻ NOAA\'dan Veri Al', 2000);
+    } catch (e) {
+        btn.textContent = '✗ Hata — Tekrar Dene';
+        setTimeout(() => btn.textContent = '↻ NOAA\'dan Veri Al', 2000);
+    }
+}
+
+document.getElementById('fetchBtn').addEventListener('click', fetchNOAA);
+
+// ── Leaflet sağ tık bilgisi ──
+map.on('click', function(e) {
+    const lat = e.latlng.lat, lng = e.latlng.lng;
+    const absLat = Math.abs(lat);
+    const risk = absLat > 62 ? Math.min(10, currentKp * 1.1) :
+                 absLat > 50 ? Math.max(0, (currentKp - 3) * 1.5) :
+                 absLat > 40 ? Math.max(0, (currentKp - 5) * 2) :
+                               Math.max(0, (currentKp - 7) * 3);
+    const rPct = Math.min(100, (risk / 10 * 100)).toFixed(0);
+    const col  = risk < 2 ? 'var(--green)' : risk < 5 ? 'var(--yellow)' : risk < 7 ? 'var(--orange)' : risk < 9 ? 'var(--red)' : 'var(--purple)';
+    L.popup({ className: '' })
+        .setLatLng(e.latlng)
+        .setContent(`
+            <div class="popup-title">📍 ${lat.toFixed(1)}°, ${lng.toFixed(1)}°</div>
+            <div class="popup-row"><span class="popup-lbl">Risk Skoru</span><span class="popup-val" style="color:${col}">${rPct}%</span></div>
+            <div class="popup-row"><span class="popup-lbl">GPS Etkisi</span><span class="popup-val">${currentKp >= 7 ? '⚠️ Bozulma' : currentKp >= 5 ? '🟡 Hafif' : '✅ Normal'}</span></div>
+            <div class="popup-row"><span class="popup-lbl">Aurora</span><span class="popup-val">${absLat > 62 ? '✅' : absLat > 50 && currentKp >= 5 ? '🟡' : absLat > 40 && currentKp >= 7 ? '🟠' : '—'}</span></div>
+        `)
+        .openOn(map);
+});
+
+// Pulse animasyonu CSS'e ekle
+const style = document.createElement('style');
+style.textContent = `
+@keyframes pulse {
+    0%,100%{ transform:scale(1); opacity:.85; }
+    50%{ transform:scale(1.4); opacity:.5; }
+}`;
+document.head.appendChild(style);
+
+// ── İlk yükleme ──
+buildHeatmap(3.0, 400);
+fetchNOAA(); // Hemen NOAA'dan çek
+
+// 5 dakikada bir otomatik güncelle
+setInterval(fetchNOAA, 300000);
+
+// Ebeveyn pencereden Kp/Wind al (window.opener üzerinden)
+window.addEventListener('message', (e) => {
+    if (e.data && e.data.type === 'STARWAY_KP') {
+        currentKp   = e.data.kp   ?? currentKp;
+        currentWind = e.data.wind ?? currentWind;
+        kpSlider.value   = currentKp;
+        windSlider.value = currentWind;
+        document.getElementById('ctrl-kp-val').textContent   = currentKp.toFixed(1);
+        document.getElementById('ctrl-wind-val').textContent = Math.round(currentWind);
+        buildHeatmap(currentKp, currentWind);
+    }
+});
+</script>
+</body>
+</html>

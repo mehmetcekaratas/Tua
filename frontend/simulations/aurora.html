@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StarWay - Aurora 3D Simülasyonu (Tam Ekran)</title>
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #010007; overflow: hidden; font-family: 'Rajdhani', sans-serif; }
+    .controls-panel {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 100;
+        background: rgba(6,13,26,0.95);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(0,212,255,0.4);
+        border-radius: 12px;
+        padding: 12px 16px;
+        font-family: 'Space Mono', monospace;
+        font-size: 12px;
+        color: #5a7a9f;
+        min-width: 160px;
+        pointer-events: auto;
+    }
+    .controls-panel h4 { color: #00d4ff; margin-bottom: 8px; font-size: 11px; letter-spacing: 2px; }
+    .controls-panel input { width: 100%; margin: 5px 0; height: 4px; cursor: pointer; }
+    .controls-panel .value { color: #ffd700; font-weight: bold; }
+    .close-btn {
+        position: fixed;
+        top: 20px;
+        left: 20px;
+        z-index: 100;
+        background: rgba(255,59,59,0.2);
+        border: 1px solid #ff3b3b;
+        color: #ff3b3b;
+        padding: 6px 14px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-family: monospace;
+        font-size: 12px;
+        pointer-events: auto;
+    }
+    .close-btn:hover { background: #ff3b3b; color: #fff; }
+    .fullscreen-btn {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        z-index: 100;
+        background: rgba(0,212,255,0.2);
+        border: 1px solid #00d4ff;
+        color: #00d4ff;
+        padding: 8px 16px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-family: monospace;
+        font-size: 12px;
+        pointer-events: auto;
+    }
+    .fullscreen-btn:hover { background: #00d4ff; color: #000; }
+    .status {
+        position: fixed;
+        bottom: 20px;
+        left: 20px;
+        background: rgba(0,0,0,0.6);
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-family: monospace;
+        font-size: 11px;
+        color: #00ffaa;
+        pointer-events: none;
+    }
+</style>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+<div class="controls-panel">
+    <h4>⚙ AURORA KONTROL</h4>
+    <div>Kp İndeksi: <span id="kpVal" class="value">3.0</span></div>
+    <input type="range" id="kpSlider" min="0" max="9" step="0.1" value="3">
+</div>
+<button class="close-btn" onclick="window.close()">✕ Kapat</button>
+<button class="fullscreen-btn" id="fullscreenBtn">🔲 Tam Ekran</button>
+<div class="status" id="status">Kp 3.0 | Normal</div>
+
+<script type="importmap">
+{
+    "imports": {
+        "three": "https://unpkg.com/three@0.128.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.128.0/examples/jsm/"
+    }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+let currentKp = 3.0;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x010007);
+
+const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 200);
+camera.position.set(0, 1.5, 5);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.autoRotate = true;
+controls.autoRotateSpeed = 0.8;
+controls.enableZoom = true;
+
+// Yıldızlar
+const starGeo = new THREE.BufferGeometry();
+const starPos = new Float32Array(2500 * 3);
+for (let i = 0; i < 2500; i++) {
+    starPos[i*3] = (Math.random() - 0.5) * 300;
+    starPos[i*3+1] = (Math.random() - 0.5) * 200;
+    starPos[i*3+2] = (Math.random() - 0.5) * 150 - 50;
+}
+starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+scene.add(new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 0.1 })));
+
+// Dünya
+const textureLoader = new THREE.TextureLoader();
+const earthMat = new THREE.MeshPhongMaterial({ map: textureLoader.load('https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg') });
+const earth = new THREE.Mesh(new THREE.SphereGeometry(1.0, 128, 128), earthMat);
+scene.add(earth);
+
+// Işıklar
+scene.add(new THREE.AmbientLight(0x112244, 0.6));
+const dirLight = new THREE.DirectionalLight(0xffeedd, 1);
+dirLight.position.set(5, 3, 2);
+scene.add(dirLight);
+
+// Aurora halkaları (basit yeşil ışıklar)
+const auroraMat = new THREE.MeshPhongMaterial({ color: 0x88ffaa, emissive: 0x44aa88, transparent: true, opacity: 0.6 });
+const auroraNorth = new THREE.Mesh(new THREE.TorusGeometry(1.15, 0.08, 64, 128), auroraMat);
+auroraNorth.position.y = 0.85;
+auroraNorth.rotation.x = Math.PI / 2;
+scene.add(auroraNorth);
+
+const auroraSouth = new THREE.Mesh(new THREE.TorusGeometry(1.15, 0.08, 64, 128), auroraMat);
+auroraSouth.position.y = -0.85;
+auroraSouth.rotation.x = Math.PI / 2;
+scene.add(auroraSouth);
+
+// Aurora partikülleri
+const particleCount = 800;
+const pGeo = new THREE.BufferGeometry();
+const pPos = new Float32Array(particleCount * 3);
+for (let i = 0; i < particleCount; i++) {
+    const lat = (55 + Math.random() * 25) * Math.PI / 180;
+    const lon = Math.random() * Math.PI * 2;
+    const r = 1.05;
+    const pole = Math.random() > 0.5 ? 1 : -1;
+    pPos[i*3] = r * Math.cos(lat) * Math.cos(lon);
+    pPos[i*3+1] = pole * r * Math.sin(lat);
+    pPos[i*3+2] = r * Math.cos(lat) * Math.sin(lon);
+}
+pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
+const particles = new THREE.Points(pGeo, new THREE.PointsMaterial({ color: 0x88ffaa, size: 0.02, transparent: true, blending: THREE.AdditiveBlending }));
+scene.add(particles);
+
+function updateAurora(kp) {
+    const intensity = Math.min(1, kp / 9);
+    auroraMat.emissiveIntensity = 0.3 + intensity * 0.7;
+    auroraMat.opacity = 0.4 + intensity * 0.5;
+    particles.material.color.setHSL(0.3 - intensity * 0.1, 1, 0.5 + intensity * 0.3);
+    particles.material.size = 0.015 + intensity * 0.02;
+
+    const statusText = kp < 4 ? 'Sakin' : kp < 6 ? 'Aktif' : kp < 8 ? 'Fırtına' : 'Şiddetli Fırtına';
+    document.getElementById('status').innerHTML = `Kp ${kp.toFixed(1)} | ${statusText}`;
+    document.getElementById('status').style.color = kp < 4 ? '#00ff88' : kp < 6 ? '#ffd700' : kp < 8 ? '#ff8c00' : '#ff3b3b';
+}
+
+let time = 0;
+function animate() {
+    requestAnimationFrame(animate);
+    time += 0.016;
+
+    earth.rotation.y += 0.002;
+    auroraNorth.rotation.z += 0.005;
+    auroraSouth.rotation.z += 0.005;
+
+    controls.update();
+    renderer.render(scene, camera);
+}
+animate();
+
+// UI
+const kpSlider = document.getElementById('kpSlider');
+const kpValSpan = document.getElementById('kpVal');
+kpSlider.addEventListener('input', (e) => {
+    currentKp = parseFloat(e.target.value);
+    kpValSpan.textContent = currentKp.toFixed(1);
+    updateAurora(currentKp);
+});
+
+window.addEventListener('message', (e) => {
+    if (e.data.type === 'INIT_AURORA') {
+        currentKp = e.data.kp || 3;
+        kpSlider.value = currentKp;
+        kpValSpan.textContent = currentKp.toFixed(1);
+        updateAurora(currentKp);
+    } else if (e.data.type === 'UPDATE_DATA') {
+        currentKp = e.data.kp || currentKp;
+        kpSlider.value = currentKp;
+        kpValSpan.textContent = currentKp.toFixed(1);
+        updateAurora(currentKp);
+    }
+});
+
+document.getElementById('fullscreenBtn').addEventListener('click', () => {
+    if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+    else document.exitFullscreen();
+});
+
+updateAurora(3);
+window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+});
+</script>
+</body>
+</html>
